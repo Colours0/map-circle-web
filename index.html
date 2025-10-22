@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <title>Map Circle (Web)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    html, body, #map { height: 100%; margin: 0; }
+    /* 上部バー（半径・色） */
+    .topbar {
+      position: absolute; top: 8px; left: 8px; right: 8px;
+      background: rgba(255,255,255,0.9); padding: 8px; display: flex; gap: 8px;
+      border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      align-items: center;
+    }
+    .topbar input[type="number"] { flex: 1; padding: 8px; border-radius: 8px; border: 1px solid #ddd; }
+    .topbar select { padding: 8px; border-radius: 8px; border: 1px solid #ddd; }
+
+    /* 下部バー（操作ボタン） */
+    .bottombar {
+      position: absolute; left: 8px; right: 8px; bottom: 8px;
+      background: rgba(255,255,255,0.9); padding: 8px; display: grid; gap: 8px;
+      grid-template-columns: repeat(3, 1fr);
+      border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .btn {
+      padding: 10px 12px; border-radius: 10px; border: 1px solid #e5e7eb;
+      background: #fff; color: #111; font-weight: 700; cursor: pointer;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary {
+      background: #65BBE9; color: #fff; border-color: #65BBE9;
+      justify-self: end; grid-column: span 1;
+    }
+    .row-span-1 { grid-column: span 1; }
+    .row-span-2-right {
+      grid-column: 3 / 4; display: flex; gap: 8px; justify-content: flex-end;
+    }
+    /* トーストっぽいメッセージ */
+    .toast {
+      position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%);
+      background: rgba(0,0,0,0.75); color: #fff; padding: 8px 12px; border-radius: 8px;
+      font-size: 14px; display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <!-- 上段：半径入力＋色選択 -->
+  <div class="topbar">
+    <input id="radiusInput" type="number" placeholder="半径 (m)" />
+    <select id="colorSelect" title="色">
+      <option value="#ff0000">赤</option>
+      <option value="#0000ff">青</option>
+      <option value="#008000">緑</option>
+      <option value="#ff00ff">紫</option>
+      <option value="#ffa500">オレンジ</option>
+      <option value="#000000">黒</option>
+    </select>
+  </div>
+
+  <!-- 下段：操作ボタン -->
+  <div class="bottombar">
+    <button id="drawBtn" class="btn row-span-1">描画<br>(中心＝長押し/クリック)</button>
+    <button id="fromMeBtn" class="btn row-span-1">現在地から描画</button>
+    <button id="resetBtn" class="btn row-span-1">リセット</button>
+
+    <!-- 右端に保存・読み込みを配置 -->
+    <div class="row-span-2-right">
+      <button id="saveBtn" class="btn btn-primary">保存</button>
+      <button id="loadBtn" class="btn btn-primary">読み込み</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    let map;
+    let selectedLatLng = null;
+    let centerMarker = null;
+    /** @type {google.maps.Circle[]} */
+    const circles = [];
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.display = 'block';
+      clearTimeout(showToast._timer);
+      showToast._timer = setTimeout(() => t.style.display = 'none', 1800);
+    }
+
+    function hexToRgb(hex) {
+      const m = hex.replace('#','');
+      const bigint = parseInt(m, 16);
+      return { r: (bigint >> 16) & 255, g: (bigint >> 8) & 255, b: bigint & 255 };
+    }
+
+    function zoomForRadius(radius) {
+      if (radius <= 50) return 18;
+      if (radius <= 200) return 16;
+      if (radius <= 1000) return 14;
+      if (radius <= 5000) return 12;
+      if (radius <= 20000) return 10;
+      return 8;
+    }
+
+    function addCircle(center, radiusMeters, strokeHex) {
+      const {r,g,b} = hexToRgb(strokeHex);
+      const circle = new google.maps.Circle({
+        map,
+        center,
+        radius: radiusMeters,
+        strokeWeight: 3,
+        strokeColor: strokeHex,
+        fillColor: `rgba(${r},${g},${b},0.2)`
+      });
+      circles.push(circle);
+    }
+
+    function clearAll() {
+      if (centerMarker) { centerMarker.setMap(null); centerMarker = null; }
+      circles.forEach(c => c.setMap(null));
+      circles.length = 0;
+      selectedLatLng = null;
+      // 保存も消す
+      localStorage.removeItem('map_circles');
+      showToast('円と保存データをすべて消しました');
+    }
+
+    function saveCircles() {
+      const data = circles.map(c => ({
+        lat: c.getCenter().lat(),
+        lng: c.getCenter().lng(),
+        radius: c.getRadius(),
+        stroke: c.get('strokeColor')
+      }));
+      localStorage.setItem('map_circles', JSON.stringify(data));
+      showToast('保存しました');
+    }
+
+    function loadCircles() {
+      const raw = localStorage.getItem('map_circles');
+      if (!raw) { showToast('保存データはありません'); return; }
+      // 描画中のものはいったん消す（マーカーは残してOK）
+      circles.forEach(c => c.setMap(null));
+      circles.length = 0;
+
+      try {
+        const list = JSON.parse(raw);
+        list.forEach(item => {
+          addCircle(new google.maps.LatLng(item.lat, item.lng), item.radius, item.stroke);
+        });
+        showToast('読み込みました');
+      } catch (e) {
+        console.error(e);
+        showToast('読み込みに失敗しました');
+      }
+    }
+
+    function initMap() {
+      const tokyo = { lat: 35.681236, lng: 139.767125 };
+      map = new google.maps.Map(document.getElementById('map'), {
+        center: tokyo,
+        zoom: 14,
+        mapTypeControl: false,
+        streetViewControl: false,
+      });
+
+      // クリックで中心選択（モバイル対応）
+      map.addListener('click', (e) => {
+        selectedLatLng = e.latLng;
+        if (centerMarker) centerMarker.setMap(null);
+        centerMarker = new google.maps.Marker({
+          map, position: e.latLng, title: '中心'
+        });
+      });
+
+      // 右クリック（長押し扱い）でも中心選択（デスクトップ向け）
+      map.addListener('rightclick', (e) => {
+        selectedLatLng = e.latLng;
+        if (centerMarker) centerMarker.setMap(null);
+        centerMarker = new google.maps.Marker({
+          map, position: e.latLng, title: '中心'
+        });
+      });
+
+      // UIイベント
+      document.getElementById('drawBtn').addEventListener('click', () => {
+        const radius = parseFloat(document.getElementById('radiusInput').value);
+        if (!selectedLatLng) { showToast('地図をタップ/長押しして中心を選んでね'); return; }
+        if (!radius || radius <= 0) { showToast('半径(m)を正しく入力してね'); return; }
+        const color = document.getElementById('colorSelect').value;
+        addCircle(selectedLatLng, radius, color);
+        // 見やすいズームに
+        map.panTo(selectedLatLng);
+        map.setZoom(zoomForRadius(radius));
+      });
+
+      document.getElementById('fromMeBtn').addEventListener('click', () => {
+        const radius = parseFloat(document.getElementById('radiusInput').value);
+        if (!radius || radius <= 0) { showToast('半径(m)を正しく入力してね'); return; }
+
+        if (!('geolocation' in navigator)) {
+          showToast('このブラウザは現在地に対応していません');
+          return;
+        }
+        // Geolocation API（※ https または localhost が必要）
+        navigator.geolocation.getCurrentPosition((pos) => {
+          const latLng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          selectedLatLng = new google.maps.LatLng(latLng);
+          if (centerMarker) centerMarker.setMap(null);
+          centerMarker = new google.maps.Marker({ map, position: latLng, title: '中心(現在地)' });
+          const color = document.getElementById('colorSelect').value;
+          addCircle(selectedLatLng, radius, color);
+          map.panTo(latLng);
+          map.setZoom(zoomForRadius(radius));
+        }, (err) => {
+          console.warn(err);
+          showToast('現在地が取得できませんでした（https/位置情報許可が必要）');
+        }, { enableHighAccuracy: true, timeout: 8000 });
+      });
+
+      document.getElementById('resetBtn').addEventListener('click', clearAll);
+      document.getElementById('saveBtn').addEventListener('click', saveCircles);
+      document.getElementById('loadBtn').addEventListener('click', loadCircles);
+    }
+
+    // グローバルに公開（Maps の callback から呼ぶ）
+    window.__initMap = initMap;
+  </script>
+
+  <!-- 👇 APIキーを差し替えてください -->
+  <script async
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCWRKvaLTruXmy21k7DoSm93E6eK0m25Gg&callback=__initMap&v=weekly">
+  </script>
+</body>
+</html>
