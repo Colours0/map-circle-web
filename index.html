@@ -62,10 +62,10 @@
 
   <!-- 下段：操作ボタン -->
   <div class="bottombar">
-    <button id="drawBtn" class="btn row-span-1">描画<br>(中心＝長押し/クリック)</button>
+    <button id="drawBtn" class="btn row-span-1">描画<br>(中心＝タップ/クリック)</button>
     <button id="fromMeBtn" class="btn row-span-1">現在地から描画</button>
     <button id="resetBtn" class="btn row-span-1">リセット</button>
-    <button id="undo-marker">一つ戻る</button>
+    <button id="undo-marker" class="btn row-span-1">一つ戻る</button>
 
     <!-- 右端に保存・読み込みを配置 -->
     <div class="row-span-2-right">
@@ -83,7 +83,10 @@
     /** @type {google.maps.Circle[]} */
     const circles = [];
 
-    const centerMarkers = [];  // ここに置いた順でピンを入れていく
+    const centerMarkers = [];  // 中心ピン（履歴）
+
+    // 描いた円（履歴）
+    const circles = [];
 
     function showToast(msg) {
       const t = document.getElementById('toast');
@@ -109,17 +112,25 @@
     }
 
     function addCircle(center, radiusMeters, strokeHex) {
+
+      if (!selectedLatLng) {
+        alert('中心が選択されていません');
+        return;
+      }
+
       const {r,g,b} = hexToRgb(strokeHex);
       const circle = new google.maps.Circle({
         map,
-        center,
-        radius: radiusMeters,
+        center: selectedLatLng,
+        radius: currentRadius,
+        // center,
+        // radius: radiusMeters,
         strokeWeight: 3,
         strokeColor: strokeHex,
         fillColor: `rgba(${r},${g},${b},0.2)`,
-        clickable: false, // ← これ追加
+        clickable: false, // 円の上でもクリック拾いたければ false 推奨
       });
-      circles.push(circle);
+      circles.push(circle); // ← これが大事
     }
 
     function clearAll() {
@@ -171,19 +182,6 @@
         streetViewControl: false,
       });
 
-      // // 右クリック（デスクトップ）/ 長押し（モバイル判定してるならそっち）で中心変更
-      // map.addListener('rightclick', (e) => {
-      //   selectedLatLng = e.latLng;
-
-      //   const marker = new google.maps.Marker({
-      //     map,
-      //     position: e.latLng,
-      //     title: '中心',
-      //   });
-        
-      //   centerMarkers.push(marker);  // ← ここで配列に積む
-      // });
-
       map.addListener('click', (e) => {
         selectedLatLng = e.latLng;
 
@@ -233,15 +231,44 @@
       });
 
       document.getElementById('undo-marker').addEventListener('click', () => {
-        const last = centerMarkers.pop();   // 最後の1個を取り出す
+        
+      // ① 最後の中心ピンを消す
+        const lastMarker = centerMarkers.pop();
+        if (lastMarker) {
+          lastMarker.setMap(null);
+        }
 
-        if (!last) return;                  // 何もなければ何もしない
+        // ② 最後の円も消す
+        const lastCircle = circles.pop();
+        if (lastCircle) {
+          lastCircle.setMap(null);
+        }
 
-        last.setMap(null);                  // 地図から削除
-
-        // selectedLatLng も一個前に戻す or 無くす
+        // ③ selectedLatLng を一個前に戻す
         const prev = centerMarkers[centerMarkers.length - 1];
         selectedLatLng = prev ? prev.getPosition() : null;
+
+        // if (!last) return;                  // 何もなければ何もしない
+
+        // last.setMap(null);                  // 地図から削除
+
+        // // selectedLatLng も一個前に戻す or 無くす
+        // const prev = centerMarkers[centerMarkers.length - 1];
+        // selectedLatLng = prev ? prev.getPosition() : null;
+      });
+
+      document.getElementById('resetBtn').addEventListener('click', () => {
+        // 円を全部削除
+        circles.forEach(c => c.setMap(null));
+        circles.length = 0;
+
+        // 中心ピンを全部削除
+        centerMarkers.forEach(m => m.setMap(null));
+        centerMarkers.length = 0;
+
+        // もし他のマーカー（距離測定用とか）も配列で持ってたらここで消す
+
+        selectedLatLng = null;
       });
 
 
