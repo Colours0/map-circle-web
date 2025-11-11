@@ -86,7 +86,7 @@
     const centerMarkers = [];  // 中心ピン（履歴）
 
     // 描いた円（履歴）
-    const circles = [];
+    // const circles = [];
 
     function showToast(msg) {
       const t = document.getElementById('toast');
@@ -257,19 +257,19 @@
         // selectedLatLng = prev ? prev.getPosition() : null;
       });
 
-      document.getElementById('resetBtn').addEventListener('click', () => {
-        // 円を全部削除
-        circles.forEach(c => c.setMap(null));
-        circles.length = 0;
+      // document.getElementById('resetBtn').addEventListener('click', () => {
+      //   // 円を全部削除
+      //   circles.forEach(c => c.setMap(null));
+      //   circles.length = 0;
 
-        // 中心ピンを全部削除
-        centerMarkers.forEach(m => m.setMap(null));
-        centerMarkers.length = 0;
+      //   // 中心ピンを全部削除
+      //   centerMarkers.forEach(m => m.setMap(null));
+      //   centerMarkers.length = 0;
 
-        // もし他のマーカー（距離測定用とか）も配列で持ってたらここで消す
+      //   // もし他のマーカー（距離測定用とか）も配列で持ってたらここで消す
 
-        selectedLatLng = null;
-      });
+      //   selectedLatLng = null;
+      // });
 
 
       document.getElementById('resetBtn').addEventListener('click', clearAll);
