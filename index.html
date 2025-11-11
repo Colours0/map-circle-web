@@ -177,14 +177,14 @@
       //   });
       // });
 
-      // 普通のクリック：ただのピン追加
-      map.addListener('click', (e) => {
-        new google.maps.Marker({
-          map,
-          position: e.latLng,
-          title: 'ピン',   // ラベルはお好みで
-        });
-      });
+      // // 普通のクリック：ただのピン追加
+      // map.addListener('click', (e) => {
+      //   new google.maps.Marker({
+      //     map,
+      //     position: e.latLng,
+      //     title: 'ピン',   // ラベルはお好みで
+      //   });
+      // });
 
 
 
@@ -202,8 +202,15 @@
       // 右クリック（デスクトップ）/ 長押し（モバイル判定してるならそっち）で中心変更
       map.addListener('rightclick', (e) => {
         selectedLatLng = e.latLng;
-        if (centerMarker) centerMarker.setMap(null);
-        centerMarker = new google.maps.Marker({
+
+        // if (centerMarker) centerMarker.setMap(null);
+        // centerMarker = new google.maps.Marker({
+        //   map,
+        //   position: e.latLng,
+        //   title: '中心',
+        // });
+
+        const marker = new google.maps.Marker({
           map,
           position: e.latLng,
           title: '中心',
