@@ -168,21 +168,45 @@
         streetViewControl: false,
       });
 
-      // クリックで中心選択（モバイル対応）
+      // // クリックで中心選択（モバイル対応）
+      // map.addListener('click', (e) => {
+      //   selectedLatLng = e.latLng;
+      //   if (centerMarker) centerMarker.setMap(null);
+      //   centerMarker = new google.maps.Marker({
+      //     map, position: e.latLng, title: '中心'
+      //   });
+      // });
+
+      // 普通のクリック：ただのピン追加
       map.addListener('click', (e) => {
-        selectedLatLng = e.latLng;
-        if (centerMarker) centerMarker.setMap(null);
-        centerMarker = new google.maps.Marker({
-          map, position: e.latLng, title: '中心'
+        new google.maps.Marker({
+          map,
+          position: e.latLng,
+          title: 'ピン',   // ラベルはお好みで
         });
       });
 
-      // 右クリック（長押し扱い）でも中心選択（デスクトップ向け）
+
+
+
+      // // 右クリック（長押し扱い）でも中心選択（デスクトップ向け）
+      // map.addListener('rightclick', (e) => {
+      //   selectedLatLng = e.latLng;
+      //   if (centerMarker) centerMarker.setMap(null);
+      //   centerMarker = new google.maps.Marker({
+      //     map, position: e.latLng, title: '中心'
+      //   });
+      // });
+
+
+      // 右クリック（デスクトップ）/ 長押し（モバイル判定してるならそっち）で中心変更
       map.addListener('rightclick', (e) => {
         selectedLatLng = e.latLng;
         if (centerMarker) centerMarker.setMap(null);
         centerMarker = new google.maps.Marker({
-          map, position: e.latLng, title: '中心'
+          map,
+          position: e.latLng,
+          title: '中心',
         });
       });
 
