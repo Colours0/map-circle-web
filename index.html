@@ -171,8 +171,20 @@
         streetViewControl: false,
       });
 
-      // 右クリック（デスクトップ）/ 長押し（モバイル判定してるならそっち）で中心変更
-      map.addListener('rightclick', (e) => {
+      // // 右クリック（デスクトップ）/ 長押し（モバイル判定してるならそっち）で中心変更
+      // map.addListener('rightclick', (e) => {
+      //   selectedLatLng = e.latLng;
+
+      //   const marker = new google.maps.Marker({
+      //     map,
+      //     position: e.latLng,
+      //     title: '中心',
+      //   });
+        
+      //   centerMarkers.push(marker);  // ← ここで配列に積む
+      // });
+
+      map.addListener('click', (e) => {
         selectedLatLng = e.latLng;
 
         const marker = new google.maps.Marker({
@@ -180,9 +192,9 @@
           position: e.latLng,
           title: '中心',
         });
-        
-        centerMarkers.push(marker);  // ← ここで配列に積む
+        centerMarkers.push(marker);
       });
+
 
       // UIイベント
       document.getElementById('drawBtn').addEventListener('click', () => {
