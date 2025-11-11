@@ -79,7 +79,7 @@
   <script>
     let map;
     let selectedLatLng = null;
-    let centerMarker = null;
+    // let centerMarker = null;
     /** @type {google.maps.Circle[]} */
     const circles = [];
 
@@ -121,8 +121,10 @@
       const {r,g,b} = hexToRgb(strokeHex);
       const circle = new google.maps.Circle({
         map,
-        center: selectedLatLng,
-        radius: currentRadius,
+        center: center,          // 関数引数の center を使う
+        radius: radiusMeters,    // 関数引数の radiusMeters を使う
+        // center: selectedLatLng,
+        // radius: currentRadius,
         // center,
         // radius: radiusMeters,
         strokeWeight: 3,
@@ -134,13 +136,26 @@
     }
 
     function clearAll() {
-      if (centerMarker) { centerMarker.setMap(null); centerMarker = null; }
+      // 中心ピンを全部消す
+      centerMarkers.forEach(m => m.setMap(null));
+      centerMarkers.length = 0;
+
+      // 円を全部消す
       circles.forEach(c => c.setMap(null));
       circles.length = 0;
+
       selectedLatLng = null;
-      // 保存も消す
+
+      // 保存データも削除
       localStorage.removeItem('map_circles');
       showToast('円と保存データをすべて消しました');
+      // if (centerMarker) { centerMarker.setMap(null); centerMarker = null; }
+      // circles.forEach(c => c.setMap(null));
+      // circles.length = 0;
+      // selectedLatLng = null;
+      // // 保存も消す
+      // localStorage.removeItem('map_circles');
+      // showToast('円と保存データをすべて消しました');
     }
 
     function saveCircles() {
@@ -215,20 +230,40 @@
           return;
         }
         // Geolocation API（※ https または localhost が必要）
-        navigator.geolocation.getCurrentPosition((pos) => {
-          const latLng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          selectedLatLng = new google.maps.LatLng(latLng);
-          if (centerMarker) centerMarker.setMap(null);
-          centerMarker = new google.maps.Marker({ map, position: latLng, title: '中心(現在地)' });
-          const color = document.getElementById('colorSelect').value;
-          addCircle(selectedLatLng, radius, color);
-          map.panTo(latLng);
-          map.setZoom(zoomForRadius(radius));
-        }, (err) => {
-          console.warn(err);
-          showToast('現在地が取得できませんでした（https/位置情報許可が必要）');
-        }, { enableHighAccuracy: true, timeout: 8000 });
-      });
+      navigator.geolocation.getCurrentPosition((pos) => {
+        const latLng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        selectedLatLng = new google.maps.LatLng(latLng);
+
+        const marker = new google.maps.Marker({
+          map,
+          position: latLng,
+          title: '中心(現在地)',
+        });
+        centerMarkers.push(marker);  // ← ここで履歴に追加！
+
+        const color = document.getElementById('colorSelect').value;
+        addCircle(selectedLatLng, radius, color);
+        map.panTo(latLng);
+        map.setZoom(zoomForRadius(radius));
+      }, (err) => {
+        console.warn(err);
+        showToast('現在地が取得できませんでした（https/位置情報許可が必要）');
+      }, { enableHighAccuracy: true, timeout: 8000 });
+
+      //   navigator.geolocation.getCurrentPosition((pos) => {
+      //     const latLng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      //     selectedLatLng = new google.maps.LatLng(latLng);
+      //     if (centerMarker) centerMarker.setMap(null);
+      //     centerMarker = new google.maps.Marker({ map, position: latLng, title: '中心(現在地)' });
+      //     const color = document.getElementById('colorSelect').value;
+      //     addCircle(selectedLatLng, radius, color);
+      //     map.panTo(latLng);
+      //     map.setZoom(zoomForRadius(radius));
+      //   }, (err) => {
+      //     console.warn(err);
+      //     showToast('現在地が取得できませんでした（https/位置情報許可が必要）');
+      //   }, { enableHighAccuracy: true, timeout: 8000 });
+      // });
 
       document.getElementById('undo-marker').addEventListener('click', () => {
         
