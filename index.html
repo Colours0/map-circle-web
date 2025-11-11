@@ -249,6 +249,7 @@
         console.warn(err);
         showToast('現在地が取得できませんでした（https/位置情報許可が必要）');
       }, { enableHighAccuracy: true, timeout: 8000 });
+    });
 
       //   navigator.geolocation.getCurrentPosition((pos) => {
       //     const latLng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
