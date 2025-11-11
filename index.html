@@ -65,6 +65,7 @@
     <button id="drawBtn" class="btn row-span-1">描画<br>(中心＝長押し/クリック)</button>
     <button id="fromMeBtn" class="btn row-span-1">現在地から描画</button>
     <button id="resetBtn" class="btn row-span-1">リセット</button>
+    <button id="undo-marker">一つ戻る</button>
 
     <!-- 右端に保存・読み込みを配置 -->
     <div class="row-span-2-right">
@@ -81,6 +82,8 @@
     let centerMarker = null;
     /** @type {google.maps.Circle[]} */
     const circles = [];
+
+    const centerMarkers = [];  // ここに置いた順でピンを入れていく
 
     function showToast(msg) {
       const t = document.getElementById('toast');
@@ -168,53 +171,17 @@
         streetViewControl: false,
       });
 
-      // // クリックで中心選択（モバイル対応）
-      // map.addListener('click', (e) => {
-      //   selectedLatLng = e.latLng;
-      //   if (centerMarker) centerMarker.setMap(null);
-      //   centerMarker = new google.maps.Marker({
-      //     map, position: e.latLng, title: '中心'
-      //   });
-      // });
-
-      // // 普通のクリック：ただのピン追加
-      // map.addListener('click', (e) => {
-      //   new google.maps.Marker({
-      //     map,
-      //     position: e.latLng,
-      //     title: 'ピン',   // ラベルはお好みで
-      //   });
-      // });
-
-
-
-
-      // // 右クリック（長押し扱い）でも中心選択（デスクトップ向け）
-      // map.addListener('rightclick', (e) => {
-      //   selectedLatLng = e.latLng;
-      //   if (centerMarker) centerMarker.setMap(null);
-      //   centerMarker = new google.maps.Marker({
-      //     map, position: e.latLng, title: '中心'
-      //   });
-      // });
-
-
       // 右クリック（デスクトップ）/ 長押し（モバイル判定してるならそっち）で中心変更
       map.addListener('rightclick', (e) => {
         selectedLatLng = e.latLng;
-
-        // if (centerMarker) centerMarker.setMap(null);
-        // centerMarker = new google.maps.Marker({
-        //   map,
-        //   position: e.latLng,
-        //   title: '中心',
-        // });
 
         const marker = new google.maps.Marker({
           map,
           position: e.latLng,
           title: '中心',
         });
+        
+        centerMarkers.push(marker);  // ← ここで配列に積む
       });
 
       // UIイベント
@@ -253,6 +220,19 @@
         }, { enableHighAccuracy: true, timeout: 8000 });
       });
 
+      document.getElementById('undo-marker').addEventListener('click', () => {
+        const last = centerMarkers.pop();   // 最後の1個を取り出す
+
+        if (!last) return;                  // 何もなければ何もしない
+
+        last.setMap(null);                  // 地図から削除
+
+        // selectedLatLng も一個前に戻す or 無くす
+        const prev = centerMarkers[centerMarkers.length - 1];
+        selectedLatLng = prev ? prev.getPosition() : null;
+      });
+
+
       document.getElementById('resetBtn').addEventListener('click', clearAll);
       document.getElementById('saveBtn').addEventListener('click', saveCircles);
       document.getElementById('loadBtn').addEventListener('click', loadCircles);
@@ -262,20 +242,7 @@
     window.__initMap = initMap;
   </script>
 
-  <!-- 👇 APIキーを差し替えてください -->
-  <!-- <script async
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDwXd59Lm9-Usb6fAmjD-adN5c3S-dP13w&callback=__initMap&v=weekly">
-  </script> -->
-  <!-- <script async
-    src="https://maps.googleapis.com/maps/api/js?key=__MAPS_API_KEY__&callback=__initMap&v=weekly">
-  </script> -->
-
-  <!-- <script
-    async defer
-    src="https://maps.googleapis.com/maps/api/js?key=__MAPS_API_KEY__&callback=initMap&v=weekly">
-  </script> -->
-
-  <script
+<script
     async defer
     src="https://maps.googleapis.com/maps/api/js?key=__MAPS_API_KEY__&callback=__initMap&v=weekly">
   </script>
