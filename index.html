@@ -80,14 +80,27 @@
   <script>
     let map;
     let selectedLatLng = null;
-    // let centerMarker = null;
     /** @type {google.maps.Circle[]} */
     const circles = [];
+    const centerMarkers = [];
 
-    const centerMarkers = [];  // 中心ピン（履歴）
+    // 距離測定用（clearAll からも触るのでグローバルに）
+    let measureMode = false;
+    let measurePoints = [];
+    let measureLine = null;
+    let measureLabel = null;
+    let measureMarkers = [];
 
-    // 描いた円（履歴）
+    // let map;
+    // let selectedLatLng = null;
+    // // let centerMarker = null;
+    // /** @type {google.maps.Circle[]} */
     // const circles = [];
+
+    // const centerMarkers = [];  // 中心ピン（履歴）
+
+    // // 描いた円（履歴）
+    // // const circles = [];
 
     function showToast(msg) {
       const t = document.getElementById('toast');
@@ -145,32 +158,45 @@
       circles.forEach(c => c.setMap(null));
       circles.length = 0;
 
-      selectedLatLng = null;
-
-      // 保存データも削除
-      localStorage.removeItem('map_circles');
-      showToast('円と保存データをすべて消しました');
-
-      // clearAll の中に（measureMarkers, measureLine, measureLabel）も掃除
-      measureMarkers?.forEach(m => m.setMap(null));
-      if (measureLine) measureLine.setMap(null);
-      if (measureLabel) measureLabel.close();
-      // if (centerMarker) { centerMarker.setMap(null); centerMarker = null; }
-      // circles.forEach(c => c.setMap(null));
-      // circles.length = 0;
       // selectedLatLng = null;
-      // // 保存も消す
+
+      // // 保存データも削除
       // localStorage.removeItem('map_circles');
       // showToast('円と保存データをすべて消しました');
 
-      if (typeof measureMarkers !== 'undefined') {
+      // // clearAll の中に（measureMarkers, measureLine, measureLabel）も掃除
+      // measureMarkers?.forEach(m => m.setMap(null));
+      // if (measureLine) measureLine.setMap(null);
+      // if (measureLabel) measureLabel.close();
+      // // if (centerMarker) { centerMarker.setMap(null); centerMarker = null; }
+      // // circles.forEach(c => c.setMap(null));
+      // // circles.length = 0;
+      // // selectedLatLng = null;
+      // // // 保存も消す
+      // // localStorage.removeItem('map_circles');
+      // // showToast('円と保存データをすべて消しました');
+
+      // if (typeof measureMarkers !== 'undefined') {
+      //   measureMarkers.forEach(m => m.setMap(null));
+      //   measureMarkers.length = 0;
+      // }
+      // if (measureLine) measureLine.setMap(null);
+      // if (measureLabel) measureLabel.close();
+
+
+      // 距離測定の残骸
+        measurePoints = [];
         measureMarkers.forEach(m => m.setMap(null));
         measureMarkers.length = 0;
-      }
-      if (measureLine) measureLine.setMap(null);
-      if (measureLabel) measureLabel.close();
+        if (measureLine) { measureLine.setMap(null); measureLine = null; }
+        if (measureLabel) { measureLabel.close(); measureLabel = null; }
 
-    }
+        selectedLatLng = null;
+        localStorage.removeItem('map_circles');
+        showToast('円と保存データをすべて消しました');
+      }
+
+    // }
 
     function saveCircles() {
       const data = circles.map(c => ({
@@ -203,11 +229,11 @@
     }
 
     function initMap() {
-      let measureMode = false;
-      let measurePoints = [];
-      let measureLine = null;
-      let measureLabel = null;
-      let measureMarkers = [];  // ←これを追加！
+      // let measureMode = false;
+      // let measurePoints = [];
+      // let measureLine = null;
+      // let measureLabel = null;
+      // let measureMarkers = [];  // ←これを追加！
 
       const tokyo = { lat: 35.681236, lng: 139.767125 };
       map = new google.maps.Map(document.getElementById('map'), {
@@ -284,7 +310,7 @@
     });
     centerMarkers.push(marker);
   });
-}
+// }
 
 
       // map.addListener('click', (e) => {
@@ -352,6 +378,7 @@
           showToast('このブラウザは現在地に対応していません');
           return;
         }
+
         // Geolocation API（※ https または localhost が必要）
       navigator.geolocation.getCurrentPosition((pos) => {
         const latLng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
