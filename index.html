@@ -162,6 +162,14 @@
       // // 保存も消す
       // localStorage.removeItem('map_circles');
       // showToast('円と保存データをすべて消しました');
+
+      if (typeof measureMarkers !== 'undefined') {
+        measureMarkers.forEach(m => m.setMap(null));
+        measureMarkers.length = 0;
+      }
+      if (measureLine) measureLine.setMap(null);
+      if (measureLabel) measureLabel.close();
+
     }
 
     function saveCircles() {
@@ -199,6 +207,7 @@
       let measurePoints = [];
       let measureLine = null;
       let measureLabel = null;
+      let measureMarkers = [];  // ←これを追加！
 
       const tokyo = { lat: 35.681236, lng: 139.767125 };
       map = new google.maps.Map(document.getElementById('map'), {
