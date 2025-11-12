@@ -62,10 +62,11 @@
 
   <!-- 下段：操作ボタン -->
   <div class="bottombar">
-    <button id="drawBtn" class="btn row-span-1">描画<br>(中心＝タップ/クリック)</button>
+    <button id="drawBtn" class="btn row-span-1">描画<br>(中心＝タップ)</button>
     <button id="fromMeBtn" class="btn row-span-1">現在地から描画</button>
     <button id="resetBtn" class="btn row-span-1">リセット</button>
     <button id="undo-marker" class="btn row-span-1">一つ戻る</button>
+    <button id="measureBtn" class="btn row-span-1">距離測定</button>
 
     <!-- 右端に保存・読み込みを配置 -->
     <div class="row-span-2-right">
@@ -149,6 +150,11 @@
       // 保存データも削除
       localStorage.removeItem('map_circles');
       showToast('円と保存データをすべて消しました');
+
+      // clearAll の中に（measureMarkers, measureLine, measureLabel）も掃除
+      measureMarkers?.forEach(m => m.setMap(null));
+      if (measureLine) measureLine.setMap(null);
+      if (measureLabel) measureLabel.close();
       // if (centerMarker) { centerMarker.setMap(null); centerMarker = null; }
       // circles.forEach(c => c.setMap(null));
       // circles.length = 0;
@@ -189,6 +195,11 @@
     }
 
     function initMap() {
+      let measureMode = false;
+      let measurePoints = [];
+      let measureLine = null;
+      let measureLabel = null;
+
       const tokyo = { lat: 35.681236, lng: 139.767125 };
       map = new google.maps.Map(document.getElementById('map'), {
         center: tokyo,
@@ -197,16 +208,119 @@
         streetViewControl: false,
       });
 
-      map.addListener('click', (e) => {
-        selectedLatLng = e.latLng;
-
-        const marker = new google.maps.Marker({
-          map,
-          position: e.latLng,
-          title: '中心',
-        });
-        centerMarkers.push(marker);
+      document.getElementById('measureBtn').addEventListener('click', () => {
+        measureMode = !measureMode;
+        showToast(measureMode ? '距離測定モード: 2点を選んでね' : '距離測定モード終了');
+        
+        // 終了時にリセット
+        if (!measureMode) {
+          measurePoints = [];
+          measureMarkers.forEach(m => m.setMap(null));
+          measureMarkers.length = 0;
+          if (measureLine) { measureLine.setMap(null); measureLine = null; }
+          if (measureLabel) { measureLabel.close(); measureLabel = null; }
+          // if (measureLine) measureLine.setMap(null);
+          // if (measureLabel) measureLabel.close();
+        }
       });
+
+// ← クリックは一本化！
+  map.addListener('click', (e) => {
+    if (measureMode) {
+      // ===== 距離測定モード中 =====
+      measurePoints.push(e.latLng);
+      const m = new google.maps.Marker({ map, position: e.latLng, title: `点${measurePoints.length}` });
+      measureMarkers.push(m);
+
+      if (measurePoints.length === 2) {
+        const dist = google.maps.geometry.spherical.computeDistanceBetween(
+          measurePoints[0], measurePoints[1]
+        );
+
+        // 既存を掃除
+        if (measureLine) measureLine.setMap(null);
+        if (measureLabel) measureLabel.close();
+
+        measureLine = new google.maps.Polyline({
+          map,
+          path: measurePoints,
+          strokeColor: '#333',
+          strokeOpacity: 0.8,
+          strokeWeight: 3,
+        });
+
+        measureLabel = new google.maps.InfoWindow({
+          content: `${Math.round(dist)} m`,
+          position: measurePoints[1],
+        });
+        measureLabel.open(map);
+
+        // 自動終了（続けたいならこの3行を消す）
+        measureMode = false;
+        showToast('距離測定モード終了');
+        // ピンは残すなら消さない。消したいならここで掃除：
+        // measureMarkers.forEach(mm => mm.setMap(null));
+        // measureMarkers.length = 0;
+        measurePoints = [];
+      }
+      return; // 中心更新はしない
+    }
+
+    // ===== 通常（中心選択） =====
+    selectedLatLng = e.latLng;
+    const marker = new google.maps.Marker({
+      map,
+      position: e.latLng,
+      title: '中心',
+    });
+    centerMarkers.push(marker);
+  });
+}
+
+
+      // map.addListener('click', (e) => {
+      //   selectedLatLng = e.latLng;
+
+      //   const marker = new google.maps.Marker({
+      //     map,
+      //     position: e.latLng,
+      //     title: '中心',
+      //   });
+      //   centerMarkers.push(marker);
+      // });
+
+      // map.addListener('click', (e) => {
+      //   if (!measureMode) return;
+
+      //   measurePoints.push(e.latLng);
+      //   new google.maps.Marker({ map, position: e.latLng, title: `点${measurePoints.length}` });
+
+      //   if (measurePoints.length === 2) {
+      //     const dist = google.maps.geometry.spherical.computeDistanceBetween(
+      //       measurePoints[0],
+      //       measurePoints[1]
+      //     );
+
+      //     measureLine = new google.maps.Polyline({
+      //       map,
+      //       path: measurePoints,
+      //       strokeColor: '#333',
+      //       strokeOpacity: 0.8,
+      //       strokeWeight: 3,
+      //     });
+
+      //     measureLabel = new google.maps.InfoWindow({
+      //       content: `${Math.round(dist)} m`,
+      //       position: measurePoints[1],
+      //     });
+      //     measureLabel.open(map);
+
+      //     // 自動でモード解除
+      //     measureMode = false;
+      //     showToast('距離測定モード終了');
+      //     measurePoints = [];
+      //   }
+      // });
 
 
       // UIイベント
@@ -251,22 +365,7 @@
       }, { enableHighAccuracy: true, timeout: 8000 });
     });
 
-      //   navigator.geolocation.getCurrentPosition((pos) => {
-      //     const latLng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      //     selectedLatLng = new google.maps.LatLng(latLng);
-      //     if (centerMarker) centerMarker.setMap(null);
-      //     centerMarker = new google.maps.Marker({ map, position: latLng, title: '中心(現在地)' });
-      //     const color = document.getElementById('colorSelect').value;
-      //     addCircle(selectedLatLng, radius, color);
-      //     map.panTo(latLng);
-      //     map.setZoom(zoomForRadius(radius));
-      //   }, (err) => {
-      //     console.warn(err);
-      //     showToast('現在地が取得できませんでした（https/位置情報許可が必要）');
-      //   }, { enableHighAccuracy: true, timeout: 8000 });
-      // });
-
-      document.getElementById('undo-marker').addEventListener('click', () => {
+        document.getElementById('undo-marker').addEventListener('click', () => {
         
       // ① 最後の中心ピンを消す
         const lastMarker = centerMarkers.pop();
@@ -283,30 +382,7 @@
         // ③ selectedLatLng を一個前に戻す
         const prev = centerMarkers[centerMarkers.length - 1];
         selectedLatLng = prev ? prev.getPosition() : null;
-
-        // if (!last) return;                  // 何もなければ何もしない
-
-        // last.setMap(null);                  // 地図から削除
-
-        // // selectedLatLng も一個前に戻す or 無くす
-        // const prev = centerMarkers[centerMarkers.length - 1];
-        // selectedLatLng = prev ? prev.getPosition() : null;
       });
-
-      // document.getElementById('resetBtn').addEventListener('click', () => {
-      //   // 円を全部削除
-      //   circles.forEach(c => c.setMap(null));
-      //   circles.length = 0;
-
-      //   // 中心ピンを全部削除
-      //   centerMarkers.forEach(m => m.setMap(null));
-      //   centerMarkers.length = 0;
-
-      //   // もし他のマーカー（距離測定用とか）も配列で持ってたらここで消す
-
-      //   selectedLatLng = null;
-      // });
-
 
       document.getElementById('resetBtn').addEventListener('click', clearAll);
       document.getElementById('saveBtn').addEventListener('click', saveCircles);
@@ -317,10 +393,16 @@
     window.__initMap = initMap;
   </script>
 
-<script
+<!-- <script
     async defer
     src="https://maps.googleapis.com/maps/api/js?key=__MAPS_API_KEY__&callback=__initMap&v=weekly">
+  </script> -->
+
+  <script
+    async defer
+    src="https://maps.googleapis.com/maps/api/js?key=__MAPS_API_KEY__&callback=__initMap&v=weekly&libraries=geometry">
   </script>
+
 
 </body>
 </html>
